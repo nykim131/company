@@ -1,0 +1,1467 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>paybooc 맛집찾기 지도 뷰 v1 프로토타입</title>
+<style>
+  :root {
+    --line: #d4d4d4;
+    --line-strong: #888;
+    --bg-soft: #f5f5f5;
+    --bg-map: #e3ebf3;
+    --text: #222;
+    --text-mute: #777;
+    --text-dim: #aaa;
+    --accent: #d04646;
+    --gold: #d4a017;
+    --silver: #9aa0a6;
+    --bronze: #b87333;
+    --chip-bg: #f0f0f0;
+    --chip-disabled-bg: #ebebeb;
+    --chip-disabled-text: #b8b8b8;
+    --chip-active-bg: #2d2d2d;
+    --chip-active-text: #fff;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #2a2d33;
+    font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    color: var(--text);
+    min-height: 100vh;
+  }
+  .stage {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px;
+    gap: 16px;
+  }
+  .stage-title {
+    color: #fff;
+    font-size: 14px;
+    opacity: 0.7;
+    margin: 0;
+  }
+  .stage-title b { opacity: 1; }
+
+  .device {
+    width: 375px;
+    height: 760px;
+    border: 8px solid #1a1c20;
+    border-radius: 36px;
+    background: #fff;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column;
+  }
+  .status-bar {
+    height: 28px;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 18px;
+    font-size: 11px;
+    color: var(--text);
+    flex-shrink: 0;
+  }
+  .app-header {
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--line);
+    background: #fff;
+    flex-shrink: 0;
+  }
+  .app-header .back, .app-header .right {
+    width: 24px;
+    cursor: pointer;
+    font-size: 20px;
+    color: var(--text);
+    text-align: center;
+    user-select: none;
+  }
+  .app-header .title { font-size: 15px; font-weight: 600; }
+
+  /* Body container */
+  .body {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Screens */
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    background: #fff;
+  }
+  .screen.active { display: flex; }
+
+  /* ---- Home screen ---- */
+  .search-panel {
+    padding: 14px 16px;
+    background: #fff;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .home-map {
+    flex: 1;
+    position: relative;
+    background:
+      repeating-linear-gradient(0deg, #d8e1eb 0 1px, transparent 1px 40px),
+      repeating-linear-gradient(90deg, #d8e1eb 0 1px, transparent 1px 40px),
+      var(--bg-map);
+    overflow: hidden;
+  }
+  .home-map-label {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255,255,255,0.96);
+    border: 1px solid #d8d8d8;
+    border-radius: 16px;
+    padding: 6px 12px;
+    font-size: 11px;
+    color: #333;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    z-index: 2;
+    white-space: nowrap;
+    max-width: 90%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .home-map-label b { color: var(--accent); margin-right: 4px; }
+  .home-center-pin {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -100%);
+    z-index: 2;
+    pointer-events: none;
+  }
+  .home-center-pin .pin-body {
+    width: 24px;
+    height: 24px;
+    background: var(--accent);
+    border: 3px solid #fff;
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+  }
+  .home-center-pin .pin-shadow {
+    position: absolute;
+    bottom: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 14px;
+    height: 4px;
+    background: rgba(0,0,0,0.18);
+    border-radius: 50%;
+    filter: blur(1px);
+  }
+  .home-map-hint {
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.65);
+    color: #fff;
+    font-size: 11px;
+    padding: 6px 12px;
+    border-radius: 14px;
+    pointer-events: none;
+    z-index: 2;
+  }
+  .search-input {
+    height: 44px;
+    border: 1.5px solid var(--line-strong);
+    border-radius: 22px;
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    font-size: 13px;
+    background: #fff;
+  }
+  .search-input input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--text);
+    background: transparent;
+  }
+  .search-input input::placeholder { color: var(--text-mute); }
+  .search-input .icon { margin-right: 8px; font-size: 14px; }
+  .search-input .clear {
+    margin-left: 8px;
+    font-size: 14px;
+    color: var(--text-dim);
+    cursor: pointer;
+  }
+
+  .region-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .dropdown {
+    flex: 1;
+    height: 38px;
+    border: 1.5px solid var(--line);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 12px;
+    font-size: 13px;
+    color: var(--text-mute);
+    background: #fff;
+    cursor: pointer;
+    user-select: none;
+  }
+  .dropdown.filled { color: var(--text); border-color: #333; }
+  .dropdown.disabled {
+    background: #f7f7f7;
+    color: var(--text-dim);
+    cursor: not-allowed;
+  }
+  .dropdown .arrow { color: var(--text-dim); font-size: 11px; }
+
+  .chip-section {
+    margin-top: 16px;
+  }
+  .chip-section .label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: var(--text-mute);
+    margin-bottom: 8px;
+  }
+  .chip-section .hint {
+    color: var(--accent);
+    font-size: 11px;
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .chip {
+    padding: 7px 12px;
+    border-radius: 16px;
+    font-size: 12px;
+    background: var(--chip-bg);
+    color: var(--text);
+    border: 1px solid transparent;
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s, color 0.15s;
+  }
+  .chip.disabled {
+    background: var(--chip-disabled-bg);
+    color: var(--chip-disabled-text);
+    cursor: not-allowed;
+  }
+  .chip.selected {
+    background: var(--chip-active-bg);
+    color: var(--chip-active-text);
+  }
+
+  .cta {
+    margin-top: 18px;
+    height: 48px;
+    border-radius: 8px;
+    background: var(--text);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+  }
+  .cta.disabled {
+    background: #d4d4d4;
+    color: #fff;
+    cursor: not-allowed;
+  }
+
+  /* ---- Result screen ---- */
+  .summary-bar {
+    padding: 10px 14px;
+    background: #fff;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+  .pill {
+    height: 28px;
+    border-radius: 14px;
+    background: var(--bg-soft);
+    color: var(--text);
+    padding: 0 10px;
+    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .pill .x {
+    color: var(--text-dim);
+    font-size: 11px;
+    margin-left: 4px;
+    cursor: pointer;
+  }
+  .summary-bar .edit {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--accent);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .result-count {
+    padding: 8px 14px;
+    font-size: 12px;
+    color: var(--text-mute);
+    background: #fff;
+    border-bottom: 1px solid #eee;
+    flex-shrink: 0;
+  }
+  .result-count b { color: var(--text); }
+
+  .map {
+    flex: 1;
+    background:
+      repeating-linear-gradient(0deg, #d8e1eb 0 1px, transparent 1px 40px),
+      repeating-linear-gradient(90deg, #d8e1eb 0 1px, transparent 1px 40px),
+      var(--bg-map);
+    position: relative;
+    overflow: hidden;
+    cursor: grab;
+  }
+  .map.dragging { cursor: grabbing; }
+  .map .label {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    background: rgba(255,255,255,0.85);
+    border: 1px dashed var(--line);
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-size: 10px;
+    color: var(--text-mute);
+    pointer-events: none;
+    z-index: 2;
+  }
+  .map-hint {
+    position: absolute;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.65);
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 16px;
+    font-size: 11px;
+    pointer-events: none;
+    z-index: 2;
+    opacity: 1;
+    transition: opacity 0.4s ease 1.5s;
+  }
+  .map-hint.gone { opacity: 0; }
+
+  .refetch-btn {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-60px);
+    background: #fff;
+    border: 1px solid #333;
+    border-radius: 20px;
+    padding: 8px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #333;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    opacity: 0;
+    transition: transform 0.3s, opacity 0.3s;
+    z-index: 3;
+    user-select: none;
+  }
+  .refetch-btn.visible {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+
+  .map-controls {
+    position: absolute;
+    right: 12px;
+    bottom: 80px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    z-index: 2;
+  }
+  .map-controls .ctrl {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    background: #fff;
+    border: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: var(--text);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  /* Markers */
+  .marker {
+    position: absolute;
+    transform: translate(-50%, -100%);
+    cursor: pointer;
+    z-index: 1;
+    transition: transform 0.15s;
+  }
+  .marker:hover { z-index: 4; }
+  .marker.active { z-index: 5; }
+  .marker .pin {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid #555;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: #555;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  }
+  .marker.small .pin {
+    width: 14px;
+    height: 14px;
+    background: #555;
+    border-color: #fff;
+  }
+  .marker.gold .pin {
+    width: 36px;
+    height: 36px;
+    background: var(--gold);
+    border-color: #fff;
+    color: #fff;
+  }
+  .marker.silver .pin {
+    width: 30px;
+    height: 30px;
+    background: var(--silver);
+    border-color: #fff;
+    color: #fff;
+  }
+  .marker.bronze .pin {
+    width: 28px;
+    height: 28px;
+    background: var(--bronze);
+    border-color: #fff;
+    color: #fff;
+  }
+  .marker.active .pin {
+    transform: scale(1.25);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+  }
+  .marker .badge-text {
+    position: absolute;
+    top: -16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #222;
+    color: #fff;
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 4px;
+    white-space: nowrap;
+    font-weight: 600;
+  }
+
+  /* Cluster */
+  .cluster {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(208, 70, 70, 0.85);
+    border: 3px solid #fff;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    cursor: pointer;
+  }
+  .cluster.lg { width: 56px; height: 56px; font-size: 15px; background: rgba(208, 70, 70, 0.95); }
+  .cluster.sm { width: 34px; height: 34px; font-size: 11px; background: rgba(208, 70, 70, 0.7); }
+
+  /* Bottom sheet */
+  .sheet {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -4px 16px rgba(0,0,0,0.1);
+    height: 38%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: height 0.3s ease;
+    z-index: 4;
+  }
+  .sheet.expanded { height: 75%; }
+  .sheet .handle-area {
+    flex-shrink: 0;
+    padding: 8px 0 6px;
+    cursor: pointer;
+    text-align: center;
+    user-select: none;
+  }
+  .sheet .handle {
+    width: 40px;
+    height: 4px;
+    background: #d4d4d4;
+    border-radius: 2px;
+    margin: 0 auto;
+  }
+  .sheet-header {
+    padding: 0 16px 8px;
+    font-size: 12px;
+    color: var(--text-mute);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+    border-bottom: 1px solid #eee;
+  }
+  .sheet-header b { color: var(--text); }
+  .sheet .sort { color: var(--text); font-size: 12px; cursor: pointer; }
+  .cards {
+    overflow-y: auto;
+    padding: 4px 0 16px;
+    flex: 1;
+  }
+  .card {
+    padding: 12px 16px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    gap: 12px;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .card:hover, .card.active { background: #fafafa; }
+  .card.active { background: #fff8e1; }
+  .card .thumb {
+    width: 56px;
+    height: 56px;
+    border-radius: 8px;
+    background: var(--bg-soft);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+  .card .info { flex: 1; min-width: 0; }
+  .card .row1 {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+  .card .name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .card .cat { font-size: 12px; color: var(--text-mute); margin-bottom: 2px; }
+  .card .addr {
+    font-size: 11px;
+    color: var(--text-dim);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tag-badge {
+    display: inline-flex;
+    align-items: center;
+    height: 18px;
+    padding: 0 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .tag-badge.gold { background: var(--gold); }
+  .tag-badge.silver { background: var(--silver); }
+  .tag-badge.bronze { background: var(--bronze); }
+
+  /* Empty */
+  .empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    text-align: center;
+    color: var(--text-mute);
+  }
+  .empty .icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: var(--bg-soft);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+  }
+  .empty .t { font-size: 15px; color: var(--text); font-weight: 600; margin-bottom: 6px; }
+  .empty .d { font-size: 13px; line-height: 1.5; }
+  .empty .empty-cta {
+    margin-top: 16px;
+    border: 1px solid var(--text);
+    border-radius: 8px;
+    padding: 10px 18px;
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  /* Modal (bottom sheet picker) */
+  .modal-mask {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 50;
+    display: none;
+    align-items: flex-end;
+    justify-content: stretch;
+  }
+  .modal-mask.active { display: flex; }
+  .modal {
+    width: 100%;
+    background: #fff;
+    border-radius: 16px 16px 0 0;
+    max-height: 80%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transform: translateY(100%);
+    transition: transform 0.25s ease;
+  }
+  .modal-mask.active .modal { transform: translateY(0); }
+  .modal-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .modal-header .t { font-size: 15px; font-weight: 600; }
+  .modal-header .close {
+    color: var(--text-dim);
+    font-size: 18px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .modal-list { overflow-y: auto; flex: 1; }
+  .modal-section {
+    padding: 10px 16px 4px;
+    font-size: 11px;
+    color: var(--text-dim);
+    background: var(--bg-soft);
+    font-weight: 600;
+  }
+  .modal-item {
+    padding: 12px 16px;
+    font-size: 14px;
+    cursor: pointer;
+    border-bottom: 1px solid #f3f3f3;
+    user-select: none;
+  }
+  .modal-item:hover, .modal-item.selected { background: #fff8e1; }
+  .modal-item.selected { font-weight: 600; color: var(--accent); }
+
+  /* Toast */
+  .toast {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.85);
+    color: #fff;
+    padding: 10px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s;
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; }
+
+  /* Stage controls */
+  .controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .controls button {
+    background: #3a3d44;
+    color: #fff;
+    border: 1px solid #50545c;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .controls button:hover { background: #4a4d54; }
+  .hint-bar {
+    color: #fff;
+    opacity: 0.55;
+    font-size: 12px;
+    margin-top: 4px;
+  }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <h1 class="stage-title"><b>paybooc 맛집찾기 지도 뷰</b> · v1 클릭 프로토타입 (모바일)</h1>
+
+  <div class="device">
+    <div class="status-bar"><span>9:41</span><span>● ● ●</span></div>
+    <div class="app-header">
+      <div class="back" id="backBtn">‹</div>
+      <div class="title" id="headerTitle">맛집찾기</div>
+      <div class="right"></div>
+    </div>
+    <div class="body">
+
+      <!-- ============== HOME SCREEN ============== -->
+      <div class="screen active" data-screen="home">
+        <div class="search-panel">
+          <div class="search-input">
+            <span class="icon">🔍</span>
+            <input id="searchInput" type="text" placeholder="가맹점명 또는 업종으로 검색" />
+            <span class="clear" id="clearSearch" style="display:none;">✕</span>
+          </div>
+
+          <div class="region-row">
+            <div class="dropdown" id="sidoDd"><span id="sidoLabel">시/도</span><span class="arrow">▼</span></div>
+            <div class="dropdown disabled" id="sigunguDd"><span id="sigunguLabel">시/군/구</span><span class="arrow">▼</span></div>
+          </div>
+
+          <div class="chip-section">
+            <div class="label">
+              <span>테마로 찾기</span>
+              <span class="hint" id="chipHint">지역을 먼저 선택해주세요</span>
+            </div>
+            <div class="chips" id="chips"></div>
+          </div>
+
+          <div class="cta disabled" id="searchCta">검색</div>
+        </div>
+        <div class="home-map" id="homeMap">
+          <div class="home-map-label" id="homeMapLabel"><b>📍</b><span id="homeMapLabelText">BC카드 본사 · 서울 중구 을지로</span></div>
+          <div class="home-center-pin">
+            <div class="pin-body"></div>
+            <div class="pin-shadow"></div>
+          </div>
+          <div class="home-map-hint">검색 조건을 입력하면 결과 지도로 이동해요</div>
+        </div>
+      </div>
+
+      <!-- ============== RESULT SCREEN ============== -->
+      <div class="screen" data-screen="result">
+        <div class="summary-bar" id="summaryBar"></div>
+        <div class="result-count" id="resultCount"></div>
+        <div class="map" id="map">
+          <div class="label" id="mapLabel">강남구 (zoom 13)</div>
+          <div class="map-hint" id="mapHint">지도를 탭하면 이동을 시뮬레이션해요</div>
+          <div class="refetch-btn" id="refetchBtn"><span>↻</span>이 지역에서 다시 검색</div>
+          <div id="markers"></div>
+          <div class="map-controls">
+            <div class="ctrl">＋</div>
+            <div class="ctrl">−</div>
+          </div>
+        </div>
+        <div class="sheet" id="sheet">
+          <div class="handle-area" id="sheetHandle"><div class="handle"></div></div>
+          <div class="sheet-header">
+            <span><b id="cardCount">100</b>개 · <span id="sortLabel">매출순</span></span>
+            <span class="sort">정렬 ▼</span>
+          </div>
+          <div class="cards" id="cards"></div>
+        </div>
+      </div>
+
+      <!-- ============== EMPTY SCREEN ============== -->
+      <div class="screen" data-screen="empty">
+        <div class="summary-bar" id="emptySummary"></div>
+        <div class="empty">
+          <div class="icon">🔍</div>
+          <div class="t">조건에 맞는 결과가 없어요</div>
+          <div class="d">지역이나 키워드를 바꿔서<br />다시 찾아보시겠어요?</div>
+          <div class="empty-cta" id="emptyCta">조건 수정하기</div>
+        </div>
+      </div>
+
+      <!-- ============== MODALS ============== -->
+      <div class="modal-mask" id="sidoModal">
+        <div class="modal">
+          <div class="modal-header">
+            <div class="t">시/도 선택</div>
+            <div class="close" data-close>✕</div>
+          </div>
+          <div class="modal-list" id="sidoList"></div>
+        </div>
+      </div>
+
+      <div class="modal-mask" id="sigunguModal">
+        <div class="modal">
+          <div class="modal-header">
+            <div class="t" id="sigunguModalTitle">시/군/구 선택</div>
+            <div class="close" data-close>✕</div>
+          </div>
+          <div class="modal-list" id="sigunguList"></div>
+        </div>
+      </div>
+
+      <!-- Toast -->
+      <div class="toast" id="toast"></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="resetBtn">⟲ 처음으로</button>
+    <button id="specBtn" onclick="window.open('wireframes.html','_blank')">정적 스펙 문서 보기</button>
+  </div>
+  <div class="hint-bar">💡 클릭으로 화면 흐름을 따라가세요 · 지도 영역 탭 = 지도 이동 시뮬레이션</div>
+</div>
+
+<script>
+// ============================================================
+// Region data
+// ============================================================
+const REGIONS = {
+  "서울": ["강남구","강동구","강북구","강서구","관악구","광진구","구로구","금천구","노원구","도봉구","동대문구","동작구","마포구","서대문구","서초구","성동구","성북구","송파구","양천구","영등포구","용산구","은평구","종로구","중구","중랑구"],
+  "부산": ["강서구","금정구","남구","동구","동래구","부산진구","북구","사상구","사하구","서구","수영구","영도구","연제구","중구","해운대구"],
+  "대구": ["달서구","달성군","동구","북구","서구","수성구","중구"],
+  "인천": ["강화군","계양구","남동구","동구","미추홀구","부평구","서구","연수구","옹진군","중구"],
+  "광주": ["광산구","남구","동구","북구","서구"],
+  "대전": ["대덕구","동구","서구","유성구","중구"],
+  "울산": ["남구","동구","북구","울주군","중구"],
+  "경기": ["가평군","고양시 덕양구","고양시 일산동구","고양시 일산서구","과천시","광명시","광주시","구리시","군포시","김포시","남양주시","동두천시","부천시","성남시 분당구","성남시 수정구","성남시 중원구","수원시 권선구","수원시 영통구","수원시 장안구","수원시 팔달구","시흥시","안산시 단원구","안산시 상록구","안성시","안양시 동안구","안양시 만안구","양주시","양평군","여주시","연천군","오산시","용인시 기흥구","용인시 수지구","용인시 처인구","의왕시","의정부시","이천시","파주시","평택시","포천시","하남시","화성시"],
+  "강원": ["강릉시","고성군","동해시","삼척시","속초시","양구군","양양군","영월군","원주시","인제군","정선군","철원군","춘천시","태백시","평창군","홍천군","화천군","횡성군"],
+  "경남": ["거제시","거창군","고성군","김해시","남해군","밀양시","사천시","산청군","양산시","의령군","진주시","창녕군","창원시 마산합포구","창원시 마산회원구","창원시 성산구","창원시 의창구","창원시 진해구","통영시","하동군","함안군","함양군","합천군"],
+  "경북": ["경산시","경주시","고령군","구미시","김천시","문경시","봉화군","상주시","성주군","안동시","영덕군","영양군","영주시","영천시","예천군","울릉군","울진군","의성군","청도군","청송군","칠곡군","포항시 남구","포항시 북구"],
+  "세종": ["세종"],
+  "전남": ["강진군","고흥군","곡성군","광양시","구례군","나주시","담양군","목포시","무안군","보성군","순천시","신안군","여수시","영광군","영암군","완도군","장성군","장흥군","진도군","함평군","해남군","화순군"],
+  "전북": ["고창군","군산시","남원시","무주군","부안군","순창군","익산시","임실군","장수군","전주시 덕진구","전주시 완산구","정읍시","진안군"],
+  "제주": ["서귀포시","제주시"],
+  "충북": ["괴산군","단양군","보은군","영동군","옥천군","음성군","증평군","진천군","청주시 상당구","청주시 서원구","청주시 청원구","청주시 흥덕구","충주시","제천시"],
+  "충남": ["계룡시","공주시","금산군","논산시","당진시","보령시","부여군","서산시","서천군","아산시","예산군","천안시 동남구","천안시 서북구","청양군","태안군","홍성군"]
+};
+
+const KEYWORDS = ["메뉴별매출랭킹1위","가족외식","동네","24시간운영","심야","퇴근후한잔","회식","외국인관광"];
+
+// Sample restaurants for "single region" view
+const SAMPLE_ONE_REGION = [
+  { name: "라온 한정식", cat: "한식 · 한정식", tier: "gold", tierLabel: "TOP 0.1%", x: 42, y: 35 },
+  { name: "트라토리아 미오", cat: "양식 · 이탈리안", tier: "silver", tierLabel: "TOP 1%", x: 60, y: 48 },
+  { name: "할매 손칼국수", cat: "한식 · 면류", tier: "bronze", tierLabel: "TOP 5%", x: 38, y: 62 },
+  { name: "토라야 라멘", cat: "일식 · 라멘", tier: null, x: 55, y: 30 },
+  { name: "스시 오마카세 미", cat: "일식 · 스시", tier: null, x: 30, y: 40 },
+  { name: "다이닝 더 가든", cat: "양식 · 다이닝", tier: null, x: 50, y: 55 },
+  { name: "마라반점", cat: "중식 · 마라", tier: null, x: 70, y: 25 },
+  { name: "고기굽는집", cat: "한식 · 구이", tier: null, x: 65, y: 70 },
+  { name: "베이커리 노아", cat: "디저트 · 베이커리", tier: null, x: 20, y: 45 },
+  { name: "차오름 다도원", cat: "카페 · 전통차", tier: null, x: 75, y: 60 }
+];
+
+// Cluster data for nationwide search
+const SAMPLE_CLUSTERS = [
+  { count: 42, x: 45, y: 30, size: "lg" },
+  { count: 18, x: 30, y: 45, size: "" },
+  { count: 12, x: 75, y: 55, size: "" },
+  { count: 9, x: 55, y: 60, size: "sm" },
+  { count: 8, x: 70, y: 25, size: "sm" },
+  { count: 7, x: 40, y: 70, size: "sm" },
+  { count: 4, x: 60, y: 75, size: "sm" }
+];
+
+const SAMPLE_NATIONWIDE = [
+  { name: "본가 강남점", cat: "한식 · 육개장", tier: "gold", tierLabel: "TOP 0.1%", addr: "서울 강남구 ○○로 12길" },
+  { name: "본가 해운대점", cat: "한식 · 김치찌개", tier: "silver", tierLabel: "TOP 1%", addr: "부산 해운대구 ○○로 30" },
+  { name: "본가 광교점", cat: "한식 · 정식", tier: "bronze", tierLabel: "TOP 5%", addr: "경기 수원시 영통구 ○○로" },
+  { name: "본가 동성로점", cat: "한식 · 백반", tier: null, addr: "대구 중구 ○○로 5" },
+  { name: "본가 제주점", cat: "한식 · 한정식", tier: null, addr: "제주 제주시 ○○로 20" },
+  { name: "본가 광주충장점", cat: "한식 · 정식", tier: null, addr: "광주 동구 ○○로" }
+];
+
+// ============================================================
+// Map center (localStorage)
+// ============================================================
+const STORAGE_KEY = "paybooc.lastMapCenter";
+const DEFAULT_CENTER = {
+  label: "BC카드 본사",
+  sub: "서울 중구 을지로"
+};
+function loadCenter() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return DEFAULT_CENTER;
+    const c = JSON.parse(raw);
+    if (!c || !c.label) return DEFAULT_CENTER;
+    return c;
+  } catch { return DEFAULT_CENTER; }
+}
+function saveCenter(c) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(c)); } catch {}
+}
+function clearCenter() {
+  try { localStorage.removeItem(STORAGE_KEY); } catch {}
+}
+function renderHomeMapLabel() {
+  const c = loadCenter();
+  const text = c.sub ? `${c.label} · ${c.sub}` : c.label;
+  $("homeMapLabelText").textContent = text;
+}
+
+// ============================================================
+// State
+// ============================================================
+const state = {
+  sido: null,
+  sigungu: null,
+  query: "",
+  chip: null,
+  mode: "home",     // home | result-one | result-nation | result-refetch | empty
+  sheetExpanded: false,
+  activeMarker: null
+};
+
+// ============================================================
+// Element refs
+// ============================================================
+const $ = (id) => document.getElementById(id);
+const screens = document.querySelectorAll(".screen");
+
+// ============================================================
+// Init: render chips
+// ============================================================
+function renderChips() {
+  const cont = $("chips");
+  cont.innerHTML = "";
+  KEYWORDS.forEach(kw => {
+    const el = document.createElement("div");
+    el.className = "chip";
+    el.textContent = kw;
+    if (!state.sigungu) el.classList.add("disabled");
+    if (state.chip === kw) el.classList.add("selected");
+    el.addEventListener("click", () => {
+      if (!state.sigungu) {
+        showToast("지역을 먼저 선택해주세요");
+        return;
+      }
+      state.chip = state.chip === kw ? null : kw;
+      renderChips();
+      // chip alone triggers search immediately
+      if (state.chip) {
+        runSearch();
+      }
+    });
+    cont.appendChild(el);
+  });
+}
+
+function updateChipHint() {
+  $("chipHint").style.display = state.sigungu ? "none" : "";
+}
+
+// ============================================================
+// Dropdowns
+// ============================================================
+$("sidoDd").addEventListener("click", () => openSidoModal());
+$("sigunguDd").addEventListener("click", () => {
+  if (!state.sido) {
+    showToast("시/도를 먼저 선택해주세요");
+    return;
+  }
+  openSigunguModal();
+});
+
+function openSidoModal() {
+  const list = $("sidoList");
+  list.innerHTML = "";
+  Object.keys(REGIONS).forEach(sido => {
+    const item = document.createElement("div");
+    item.className = "modal-item";
+    if (state.sido === sido) item.classList.add("selected");
+    item.textContent = sido;
+    item.addEventListener("click", () => {
+      state.sido = sido;
+      // reset sigungu if 시/도 changed
+      state.sigungu = null;
+      state.chip = null;
+      $("sidoLabel").textContent = sido;
+      $("sidoDd").classList.add("filled");
+      $("sigunguLabel").textContent = "시/군/구";
+      $("sigunguDd").classList.remove("filled");
+      $("sigunguDd").classList.remove("disabled");
+      renderChips();
+      updateChipHint();
+      updateCta();
+      closeModals();
+      // auto-open sigungu picker for smoother UX
+      setTimeout(() => openSigunguModal(), 200);
+    });
+    list.appendChild(item);
+  });
+  $("sidoModal").classList.add("active");
+}
+
+function openSigunguModal() {
+  const list = $("sigunguList");
+  list.innerHTML = "";
+  $("sigunguModalTitle").textContent = `${state.sido} · 시/군/구 선택`;
+  (REGIONS[state.sido] || []).forEach(sgg => {
+    const item = document.createElement("div");
+    item.className = "modal-item";
+    if (state.sigungu === sgg) item.classList.add("selected");
+    item.textContent = sgg;
+    item.addEventListener("click", () => {
+      state.sigungu = sgg;
+      $("sigunguLabel").textContent = sgg;
+      $("sigunguDd").classList.add("filled");
+      renderChips();
+      updateChipHint();
+      updateCta();
+      closeModals();
+    });
+    list.appendChild(item);
+  });
+  $("sigunguModal").classList.add("active");
+}
+
+document.querySelectorAll("[data-close]").forEach(el => {
+  el.addEventListener("click", closeModals);
+});
+document.querySelectorAll(".modal-mask").forEach(el => {
+  el.addEventListener("click", (e) => {
+    if (e.target === el) closeModals();
+  });
+});
+
+function closeModals() {
+  document.querySelectorAll(".modal-mask").forEach(el => el.classList.remove("active"));
+}
+
+// ============================================================
+// Search input
+// ============================================================
+$("searchInput").addEventListener("input", (e) => {
+  state.query = e.target.value;
+  $("clearSearch").style.display = state.query ? "" : "none";
+  updateCta();
+});
+$("clearSearch").addEventListener("click", () => {
+  state.query = "";
+  $("searchInput").value = "";
+  $("clearSearch").style.display = "none";
+  updateCta();
+});
+
+// ============================================================
+// CTA
+// ============================================================
+function updateCta() {
+  const cta = $("searchCta");
+  const canSearch = state.sigungu || state.query.trim();
+  cta.classList.toggle("disabled", !canSearch);
+}
+$("searchCta").addEventListener("click", () => {
+  if ($("searchCta").classList.contains("disabled")) return;
+  runSearch();
+});
+
+// ============================================================
+// Run search → switch screen
+// ============================================================
+function runSearch() {
+  // Empty result simulation: 광양시 + "파스타"
+  const queryLower = state.query.trim().toLowerCase();
+  if (state.sigungu === "광양시" && /파스타|이탈|양식/.test(queryLower)) {
+    state.mode = "empty";
+    showScreen("empty");
+    renderEmptySummary();
+    // still record last center
+    saveCenter({ label: state.sigungu, sub: state.sido });
+    return;
+  }
+
+  if (state.sigungu) {
+    state.mode = "result-one";
+    saveCenter({ label: state.sigungu, sub: state.sido });
+    showScreen("result");
+    renderResultOneRegion();
+  } else if (state.query.trim()) {
+    state.mode = "result-nation";
+    saveCenter({ label: "최근 검색", sub: `"${state.query}" · 전국` });
+    showScreen("result");
+    renderResultNationwide();
+  }
+}
+
+function showScreen(name) {
+  screens.forEach(s => s.classList.toggle("active", s.dataset.screen === name));
+  $("headerTitle").textContent = name === "home" ? "맛집찾기" : "맛집찾기 결과";
+  // reset sheet
+  state.sheetExpanded = false;
+  $("sheet").classList.remove("expanded");
+  // reset refetch
+  $("refetchBtn").classList.remove("visible");
+  // reset markers active
+  state.activeMarker = null;
+}
+
+// ============================================================
+// Render: result - one region
+// ============================================================
+function renderResultOneRegion() {
+  // Summary bar
+  const sb = $("summaryBar");
+  sb.innerHTML = "";
+  if (state.sido && state.sigungu) {
+    sb.appendChild(makePill(`${state.sido} ${state.sigungu}`, () => {
+      state.sigungu = null; state.chip = null; goHome();
+    }));
+  }
+  if (state.chip) {
+    sb.appendChild(makePill(state.chip, () => {
+      state.chip = null; runSearch();
+    }));
+  }
+  if (state.query.trim()) {
+    sb.appendChild(makePill(`"${state.query}"`, () => {
+      state.query = ""; $("searchInput").value = ""; runSearch();
+    }));
+  }
+  const edit = document.createElement("span");
+  edit.className = "edit";
+  edit.textContent = "수정";
+  edit.addEventListener("click", goHome);
+  sb.appendChild(edit);
+
+  $("resultCount").innerHTML = `<b>100</b>개의 맛집 · 매출순`;
+  $("cardCount").textContent = "100";
+  $("mapLabel").textContent = `${state.sigungu} (zoom 13)`;
+
+  // Map markers
+  renderMarkersOneRegion();
+  // Cards
+  renderCardsOneRegion();
+  // reset map hint
+  const hint = $("mapHint");
+  hint.classList.remove("gone");
+  setTimeout(() => hint.classList.add("gone"), 2400);
+}
+
+function renderMarkersOneRegion() {
+  const m = $("markers");
+  m.innerHTML = "";
+  SAMPLE_ONE_REGION.forEach((r, idx) => {
+    const el = document.createElement("div");
+    el.className = "marker" + (r.tier ? ` ${r.tier}` : " small");
+    el.style.top = r.y + "%";
+    el.style.left = r.x + "%";
+    el.dataset.idx = idx;
+    let html = "";
+    if (r.tierLabel) html += `<div class="badge-text">${r.tierLabel}</div>`;
+    html += `<div class="pin">${r.tier ? idx + 1 : ""}</div>`;
+    el.innerHTML = html;
+    el.addEventListener("click", (e) => {
+      e.stopPropagation();
+      highlightMarker(idx);
+    });
+    m.appendChild(el);
+  });
+}
+
+function renderCardsOneRegion() {
+  const cards = $("cards");
+  cards.innerHTML = "";
+  SAMPLE_ONE_REGION.forEach((r, idx) => {
+    const c = document.createElement("div");
+    c.className = "card";
+    c.dataset.idx = idx;
+    c.innerHTML = `
+      <div class="thumb">사진</div>
+      <div class="info">
+        <div class="row1">
+          ${r.tier ? `<span class="tag-badge ${r.tier}">${r.tierLabel}</span>` : ""}
+          <span class="name">${r.name}</span>
+        </div>
+        <div class="cat">${r.cat}</div>
+        <div class="addr">${state.sido} ${state.sigungu} ○○로 ${10 + idx}길</div>
+      </div>
+    `;
+    c.addEventListener("click", () => highlightMarker(idx));
+    cards.appendChild(c);
+  });
+}
+
+function highlightMarker(idx) {
+  state.activeMarker = idx;
+  document.querySelectorAll(".marker").forEach(m => {
+    m.classList.toggle("active", parseInt(m.dataset.idx) === idx);
+  });
+  document.querySelectorAll(".card").forEach(c => {
+    const match = parseInt(c.dataset.idx) === idx;
+    c.classList.toggle("active", match);
+    if (match) {
+      c.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  });
+}
+
+// ============================================================
+// Render: result - nationwide (cluster)
+// ============================================================
+function renderResultNationwide() {
+  const sb = $("summaryBar");
+  sb.innerHTML = "";
+  if (state.query.trim()) {
+    sb.appendChild(makePill(`"${state.query}"`, () => {
+      state.query = ""; $("searchInput").value = ""; goHome();
+    }));
+  }
+  const edit = document.createElement("span");
+  edit.className = "edit";
+  edit.textContent = "수정";
+  edit.addEventListener("click", goHome);
+  sb.appendChild(edit);
+
+  $("resultCount").innerHTML = `<b>100</b>개의 맛집 · 매출순 · 전국`;
+  $("cardCount").textContent = "100";
+  $("mapLabel").textContent = "전국 (fitBounds)";
+
+  // Clusters
+  const m = $("markers");
+  m.innerHTML = "";
+  SAMPLE_CLUSTERS.forEach(c => {
+    const el = document.createElement("div");
+    el.className = "cluster" + (c.size ? ` ${c.size}` : "");
+    el.style.top = c.y + "%";
+    el.style.left = c.x + "%";
+    el.textContent = c.count;
+    el.addEventListener("click", () => {
+      showToast(`클러스터 줌인 (${c.count}개)`);
+    });
+    m.appendChild(el);
+  });
+
+  // Cards
+  const cards = $("cards");
+  cards.innerHTML = "";
+  SAMPLE_NATIONWIDE.forEach((r, idx) => {
+    const c = document.createElement("div");
+    c.className = "card";
+    c.innerHTML = `
+      <div class="thumb">사진</div>
+      <div class="info">
+        <div class="row1">
+          ${r.tier ? `<span class="tag-badge ${r.tier}">${r.tierLabel}</span>` : ""}
+          <span class="name">${r.name}</span>
+        </div>
+        <div class="cat">${r.cat}</div>
+        <div class="addr">${r.addr}</div>
+      </div>
+    `;
+    cards.appendChild(c);
+  });
+
+  const hint = $("mapHint");
+  hint.classList.remove("gone");
+  setTimeout(() => hint.classList.add("gone"), 2400);
+}
+
+// ============================================================
+// Render: empty summary
+// ============================================================
+function renderEmptySummary() {
+  const sb = $("emptySummary");
+  sb.innerHTML = "";
+  if (state.sido && state.sigungu) {
+    sb.appendChild(makePill(`${state.sido} ${state.sigungu}`, () => {}));
+  }
+  if (state.query.trim()) {
+    sb.appendChild(makePill(`"${state.query}"`, () => {}));
+  }
+  if (state.chip) {
+    sb.appendChild(makePill(state.chip, () => {}));
+  }
+  const edit = document.createElement("span");
+  edit.className = "edit";
+  edit.textContent = "수정";
+  edit.addEventListener("click", goHome);
+  sb.appendChild(edit);
+}
+
+$("emptyCta").addEventListener("click", goHome);
+
+// ============================================================
+// Helpers
+// ============================================================
+function makePill(text, onClose) {
+  const p = document.createElement("span");
+  p.className = "pill";
+  const t = document.createElement("span");
+  t.textContent = text;
+  p.appendChild(t);
+  const x = document.createElement("span");
+  x.className = "x";
+  x.textContent = "✕";
+  x.addEventListener("click", (e) => { e.stopPropagation(); onClose && onClose(); });
+  p.appendChild(x);
+  return p;
+}
+
+// ============================================================
+// Map tap → simulate map move → show refetch
+// ============================================================
+$("map").addEventListener("click", (e) => {
+  // ignore clicks on markers/clusters/controls
+  if (e.target.closest(".marker") || e.target.closest(".cluster") || e.target.closest(".map-controls") || e.target.closest(".refetch-btn")) return;
+  $("refetchBtn").classList.add("visible");
+  $("mapLabel").textContent = `${state.sigungu || "지도"} 이동됨`;
+  $("mapHint").classList.add("gone");
+});
+
+$("refetchBtn").addEventListener("click", () => {
+  showToast("좌표 기반 검색 (API 3) 호출됨");
+  $("refetchBtn").classList.remove("visible");
+  // simulate refreshed result: bump a slightly different label
+  const newLabel = `${state.sigungu || "최근 위치"} 근처`;
+  $("mapLabel").textContent = newLabel + " (재검색)";
+  // save shifted center
+  saveCenter({ label: newLabel, sub: "좌표 기반" });
+});
+
+// ============================================================
+// Bottom sheet toggle
+// ============================================================
+$("sheetHandle").addEventListener("click", () => {
+  state.sheetExpanded = !state.sheetExpanded;
+  $("sheet").classList.toggle("expanded", state.sheetExpanded);
+});
+
+// ============================================================
+// Header back / 수정 → home
+// ============================================================
+function goHome() {
+  state.mode = "home";
+  showScreen("home");
+  renderHomeMapLabel();
+}
+$("backBtn").addEventListener("click", () => {
+  if (state.mode !== "home") goHome();
+});
+
+// ============================================================
+// Reset
+// ============================================================
+$("resetBtn").addEventListener("click", () => {
+  state.sido = null;
+  state.sigungu = null;
+  state.chip = null;
+  state.query = "";
+  $("searchInput").value = "";
+  $("clearSearch").style.display = "none";
+  $("sidoLabel").textContent = "시/도";
+  $("sigunguLabel").textContent = "시/군/구";
+  $("sidoDd").classList.remove("filled");
+  $("sigunguDd").classList.remove("filled");
+  $("sigunguDd").classList.add("disabled");
+  clearCenter();
+  renderChips();
+  updateChipHint();
+  updateCta();
+  goHome();
+});
+
+// ============================================================
+// Toast
+// ============================================================
+let toastTimer = null;
+function showToast(msg) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 1800);
+}
+
+// ============================================================
+// Init
+// ============================================================
+renderChips();
+updateChipHint();
+updateCta();
+renderHomeMapLabel();
+</script>
+</body>
+</html>
